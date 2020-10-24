@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "notion-hugo"
+version = "0.1.0"
+description = ""
+authors = ["Nik V <github@nikvdp.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+notion = "^0.0.25"
+PyYAML = "^5.3.1"
+
+[tool.poetry.dev-dependencies]
+ipython = "^7.18.1"
+ipdb = "^0.13.4"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
