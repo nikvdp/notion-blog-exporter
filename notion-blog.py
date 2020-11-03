@@ -6,7 +6,9 @@ from textwrap import dedent
 from textwrap import dedent
 from os.path import join as join_path
 from notion.client import NotionClient
-from notion.block import PageBlock, ImageBlock, TextBlock, CodeBlock, ImageBlock
+from notion.block import PageBlock, ImageBlock, TextBlock, \
+        CodeBlock, ImageBlock, NumberedListBlock, BulletedListBlock, \
+        QuoteBlock
 from typing import List, Optional
 
 # TODO: maybe use puppeteer to grab this going forward?
@@ -35,18 +37,51 @@ img = sway_i3.children[0]
 
 img.download_file("/tmp/Untitled.png")
 
+blog_post = posts_to_publish[1]
+
+
+
+def listblock_to_markdown_handler(block):
+    prefix = "- " if isinstance(block, BulletedListBlock) else "" 
+    prefix = "1. " if isinstance(block, NumberedListBlock) else prefix
+
+    lines = block.title.split("\n")
+    output = ""
+    for idx, line in enumerate(lines):
+        if idx == 0:
+            output = f"{output}{prefix}{line}\n"
+        else:
+            output = f"{output}{' ' * len(prefix)}{line}\n"
+
+    return f"{output}\n"
+
+def blocks_to_markdown(page):
+    markdown_out = ""
+    for block in blog_post.children: 
+        markdown_out += block_to_markdown(block) or "" 
+
+    with open("/tmp/out.md", "w") as fp:
+        fp.write(markdown_out)
+    print(markdown_out)
+    return markdown_out
 
 def block_to_markdown(block):
-    markdown = ""
-    if isinstance(block, TextBlock):
-        markdown = f"\n{block.title}\n"
-    if isinstance(block, CodeBlock):
-        markdown = f"\n" \
-        f"```{block.language.lower()}\n" \
-        f"{block.title}\n" \
-        "```"
+    default_handler = lambda block: f"\n{block.title}\n"
 
-    return markdown
+    handlers = {
+        # TODO: list blocks need to handle indentation for continuing lines
+        QuoteBlock: lambda block: "> " + "> ".join([f"{x}\n" for x in block.title.split("\n")]),
+        NumberedListBlock: listblock_to_markdown_handler,
+        BulletedListBlock: listblock_to_markdown_handler,
+        # NumberedListBlock: lambda block: f"1. {block.title}\n",
+        # BulletedListBlock: lambda block: f"- {block.title}\n",
+        CodeBlock: lambda block: f"\n"
+        f"```{block.language.lower()}\n"
+        f"{block.title}\n"
+        "```\n",
+    }
+
+    return handlers.get(type(block), default_handler)(block)
 
 def read_post():
     published_posts = blog_posts_page.children[0].children
