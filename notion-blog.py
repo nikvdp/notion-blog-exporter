@@ -6,10 +6,20 @@ from textwrap import dedent
 from textwrap import dedent
 from os.path import join as join_path
 from notion.client import NotionClient
-from notion.block import PageBlock, ImageBlock, TextBlock, \
-        CodeBlock, ImageBlock, NumberedListBlock, BulletedListBlock, \
-        QuoteBlock, HeaderBlock, SubheaderBlock, SubsubheaderBlock, \
-        CalloutBlock
+from notion.block import (
+    PageBlock,
+    ImageBlock,
+    TextBlock,
+    CodeBlock,
+    ImageBlock,
+    NumberedListBlock,
+    BulletedListBlock,
+    QuoteBlock,
+    HeaderBlock,
+    SubheaderBlock,
+    SubsubheaderBlock,
+    CalloutBlock,
+)
 from typing import List, Optional
 
 # TODO: maybe use puppeteer to grab this going forward?
@@ -39,7 +49,6 @@ img = sway_i3.children[0]
 img.download_file("/tmp/Untitled.png")
 
 blog_post = posts_to_publish[1]
-
 
 
 def listblock_to_markdown_handler(block):
@@ -82,18 +91,15 @@ def block_to_markdown(block):
         SubsubheaderBlock: lambda block: f"### {block.title}",
         CalloutBlock: lambda block: f"> {block.icon} "
         + "> ".join([f"{x}\n" for x in block.title.split("\n")]),
-        # NumberedListBlock: lambda block: f"1. {block.title}\n",
-        # BulletedListBlock: lambda block: f"- {block.title}\n",
-        CodeBlock: lambda block: f"\n"
-        f"```{block.language.lower()}\n"
-        f"{block.title}\n"
-        "```\n",
+        CodeBlock: lambda block: f"\n```{block.language.lower()}\n{block.title}\n```\n",
     }
 
     return handlers.get(type(block), default_handler)(block)
 
+
 def read_post():
     published_posts = blog_posts_page.children[0].children
+
 
 def main():
     hugo_posts = collect_hugo_posts()
