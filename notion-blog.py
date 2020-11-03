@@ -8,7 +8,8 @@ from os.path import join as join_path
 from notion.client import NotionClient
 from notion.block import PageBlock, ImageBlock, TextBlock, \
         CodeBlock, ImageBlock, NumberedListBlock, BulletedListBlock, \
-        QuoteBlock
+        QuoteBlock, HeaderBlock, SubheaderBlock, SubsubheaderBlock, \
+        CalloutBlock
 from typing import List, Optional
 
 # TODO: maybe use puppeteer to grab this going forward?
@@ -42,7 +43,7 @@ blog_post = posts_to_publish[1]
 
 
 def listblock_to_markdown_handler(block):
-    prefix = "- " if isinstance(block, BulletedListBlock) else "" 
+    prefix = "- " if isinstance(block, BulletedListBlock) else ""
     prefix = "1. " if isinstance(block, NumberedListBlock) else prefix
 
     lines = block.title.split("\n")
@@ -55,24 +56,32 @@ def listblock_to_markdown_handler(block):
 
     return f"{output}\n"
 
+
 def blocks_to_markdown(page):
     markdown_out = ""
-    for block in blog_post.children: 
-        markdown_out += block_to_markdown(block) or "" 
+    for block in blog_post.children:
+        markdown_out += block_to_markdown(block) or ""
 
     with open("/tmp/out.md", "w") as fp:
         fp.write(markdown_out)
     print(markdown_out)
     return markdown_out
 
+
 def block_to_markdown(block):
     default_handler = lambda block: f"\n{block.title}\n"
 
     handlers = {
         # TODO: list blocks need to handle indentation for continuing lines
-        QuoteBlock: lambda block: "> " + "> ".join([f"{x}\n" for x in block.title.split("\n")]),
+        QuoteBlock: lambda block: "> "
+        + "> ".join([f"{x}\n" for x in block.title.split("\n")]),
         NumberedListBlock: listblock_to_markdown_handler,
         BulletedListBlock: listblock_to_markdown_handler,
+        HeaderBlock: lambda block: f"# {block.title}",
+        SubheaderBlock: lambda block: f"## {block.title}",
+        SubsubheaderBlock: lambda block: f"### {block.title}",
+        CalloutBlock: lambda block: f"> {block.icon} "
+        + "> ".join([f"{x}\n" for x in block.title.split("\n")]),
         # NumberedListBlock: lambda block: f"1. {block.title}\n",
         # BulletedListBlock: lambda block: f"- {block.title}\n",
         CodeBlock: lambda block: f"\n"
