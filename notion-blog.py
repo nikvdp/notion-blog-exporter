@@ -1,10 +1,9 @@
+#!/usr/bin/env python3
+import click
 from dataclasses import dataclass, asdict
 import yaml
 from datetime import datetime
 import os
-from textwrap import dedent
-from textwrap import dedent
-from os.path import join as join_path
 from notion.client import NotionClient
 from notion.block import (
     PageBlock,
@@ -20,17 +19,23 @@ from notion.block import (
     SubsubheaderBlock,
     CalloutBlock,
 )
+
+from textwrap import dedent
+from os.path import join as join_path
 from typing import List, Optional
+import sys
 
 
 # TODO: maybe use puppeteer to grab this going forward?
 # TODO: remember to use git filter branch to scrub this out of repo history before pushing!
-NOTION_TOKEN = "***REMOVED***"
-HUGO_POSTS_LOCATION = (
-    "***REMOVED***"
-)
+config = None
 
-client = NotionClient(token_v2=NOTION_TOKEN)
+
+@dataclass
+class GlobalConfigContainer:
+    notion_token: str
+    hugo_posts_location: str
+    notion_client: NotionClient
 
 
 @dataclass
@@ -90,7 +95,7 @@ def collect_notion_posts(
     # id of blog posts page: ***REMOVED***
 
     # find blog posts page
-    blog_posts_page = client.get_block(source_block_or_page_id)
+    blog_posts_page = config.notion_client.get_block(source_block_or_page_id)
 
     notion_posts = []
     for post in blog_posts_page.children:
@@ -155,7 +160,66 @@ def block_to_markdown(block):
     return handlers.get(type(block), default_handler)(block)
 
 
-def main():
+def collect_hugo_posts():
+    md_post_files = [
+        p
+        for p in os.listdir(config.hugo_posts_location)
+        if p.lower().endswith(".md")
+    ]
+
+    posts = []
+    for post_file in md_post_files:
+        with open(join_path(config.hugo_posts_location, post_file)) as pf:
+            content = pf.read()
+        posts.append(parse_post(content))
+    return posts
+
+
+def parse_post(content) -> HugoPost:
+    content = content.split("---")
+
+    front_matter = yaml.safe_load(content[1])
+
+    # join in case there were any other '---' later in file
+    body = "\n".join(content[2:])
+
+    return HugoPost(**front_matter, body=body)
+
+# export NOTION_TOKEN="***REMOVED***"
+# export HUGO_POSTS_FOLDER="***REMOVED***"
+
+# helper class to get the click output text to show NOTION_TOKEN
+# as the type
+class ClickTokenType(click.types.StringParamType):
+    name = "notion_token"
+
+
+@click.command(context_settings=dict(help_option_names=["-h", "--help"]))
+@click.option(
+    "-p",
+    "--hugo-posts-folder",
+    prompt="Hugo posts folder",
+    envvar="HUGO_POSTS_FOLDER",
+    type=click.Path(exists=True, file_okay=False),
+)
+@click.option(
+    "-n",
+    "--notion-token",
+    prompt="Notion token",
+    type=ClickTokenType(),
+    envvar="NOTION_TOKEN",
+)
+def main(hugo_posts_folder, notion_token):
+
+    notion_client = NotionClient(token_v2=notion_token)
+
+    global config
+    config = GlobalConfigContainer(
+        hugo_posts_location=hugo_posts_folder,
+        notion_token=notion_token,
+        notion_client=notion_client,
+    )
+
     hugo_posts = collect_hugo_posts()
     hugo_published = [p for p in hugo_posts if not p.draft]
 
@@ -181,28 +245,5 @@ def main():
     # - then push the hugo repo
 
 
-def collect_hugo_posts():
-    md_post_files = [
-        p for p in os.listdir(HUGO_POSTS_LOCATION) if p.lower().endswith(".md")
-    ]
-
-    posts = []
-    for post_file in md_post_files:
-        with open(join_path(HUGO_POSTS_LOCATION, post_file)) as pf:
-            content = pf.read()
-        posts.append(parse_post(content))
-    return posts
-
-
-def parse_post(content) -> HugoPost:
-    content = content.split("---")
-
-    front_matter = yaml.safe_load(content[1])
-
-    # join in case there were any other '---' later in file
-    body = "\n".join(content[2:])
-
-    return HugoPost(**front_matter, body=body)
-
-
-main()
+if __name__ == "__main__":
+    main()
