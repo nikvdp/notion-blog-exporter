@@ -8,6 +8,7 @@ authors = ["Nik V <github@nikvdp.com>"]
 python = "^3.8"
 notion = "^0.0.25"
 PyYAML = "^5.3.1"
+click = "^7.1.2"
 
 [tool.poetry.dev-dependencies]
 ipython = "^7.18.1"

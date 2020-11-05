@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import click
+import re
 from dataclasses import dataclass, asdict
 import yaml
 from datetime import datetime
@@ -52,8 +53,8 @@ class BlogPost:
 class HugoPost:
     title: str
     date: datetime
-    draft: bool
     body: str
+    draft: Optional[bool] = False
     aliases: Optional[List[str]] = None
 
     @classmethod
@@ -78,6 +79,18 @@ class HugoPost:
         as_yaml = yaml.dump(front_matter, default_flow_style=False)
         output = f"---\n{as_yaml}\n---{self.body}"
         return output
+
+
+def to_valid_filename(string):
+    """Converts a string into something usable as a filename
+
+    Adapted from django's get_valid_filename.
+
+    see: https://github.com/django/django/blob/0382ecfe020b4c51b4c01e4e9a21892771e66941/django/utils/text.py#L221-L232
+    """
+
+    string = str(string).strip().replace(" ", "_")
+    return re.sub(r"(?u)[^-\w.]", "", string)
 
 
 def collect_notion_posts(
@@ -211,8 +224,11 @@ class ClickTokenType(click.types.StringParamType):
     type=ClickTokenType(),
     envvar="NOTION_TOKEN",
 )
-@click.option("--notion-root-block", prompt="Notion root block to collect blog posts from:", 
-        envvar="NOTION_ROOT_BLOCK")
+@click.option(
+    "--notion-root-block",
+    prompt="Notion root block to collect blog posts from:",
+    envvar="NOTION_ROOT_BLOCK",
+)
 def main(hugo_posts_folder, notion_token, notion_root_block):
 
     notion_client = NotionClient(token_v2=notion_token)
@@ -227,14 +243,25 @@ def main(hugo_posts_folder, notion_token, notion_root_block):
     hugo_posts = collect_hugo_posts()
     hugo_published = [p for p in hugo_posts if not p.draft]
 
-    notion_posts = collect_notion_posts()
+    notion_posts = collect_notion_posts(notion_root_block)
 
-    blog_post = notion_posts[1]
+    for blog_post in notion_posts:
 
-    hugo_post = HugoPost.from_blog_post(blog_post)
+        # skip blanks
+        if not blog_post.title:
+            continue
+        # blog_post = notion_posts[1]
 
-    blog_output = hugo_post.to_hugo()
-    print(blog_output)
+        hugo_post = HugoPost.from_blog_post(blog_post)
+        blog_output = hugo_post.to_hugo()
+
+        safe_title = f"{to_valid_filename(hugo_post.title)}.md"
+        with open(join_path(hugo_posts_folder, safe_title), "w") as fp:
+            fp.write(blog_output)
+
+        print(f"Wrote '{safe_title}' to '{hugo_posts_folder}'")
+
+        # print(blog_output)
 
     # import IPython;IPython.embed()
 
