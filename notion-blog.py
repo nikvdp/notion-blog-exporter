@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import yaml
 from datetime import datetime
 import os
@@ -24,6 +24,7 @@ from typing import List, Optional
 
 
 # TODO: maybe use puppeteer to grab this going forward?
+# TODO: remember to use git filter branch to scrub this out of repo history before pushing!
 NOTION_TOKEN = "***REMOVED***"
 HUGO_POSTS_LOCATION = (
     "***REMOVED***"
@@ -32,8 +33,50 @@ HUGO_POSTS_LOCATION = (
 client = NotionClient(token_v2=NOTION_TOKEN)
 
 
+@dataclass
+class BlogPost:
+    title: str
+    date: datetime
+    body: str
+    draft: Optional[bool] = None
+    last_edited: Optional[datetime] = None
+    metadata: Optional[any] = None
+
+
+@dataclass
+class HugoPost:
+    title: str
+    date: datetime
+    draft: bool
+    body: str
+    aliases: Optional[List[str]] = None
+
+    @classmethod
+    def from_blog_post(cls, post: BlogPost):
+        field_map = dict(
+            title="title", date="date", draft="draft", body="body"
+        )
+
+        output = {}
+        for k, v in asdict(post).items():
+            if k in field_map:
+                output[field_map[k]] = v
+
+        return cls(**output)
+
+    def to_hugo(self) -> str:
+        front_matter = {
+            k: v
+            for k, v in asdict(self).items()
+            if v is not None and k != "body"
+        }
+        as_yaml = yaml.dump(front_matter, default_flow_style=False)
+        output = f"---\n{as_yaml}\n---{self.body}"
+        return output
+
+
 def collect_notion_posts(
-    source_block_or_page_id: str = "***REMOVED***",
+    source_block_or_page_id: str,
 ) -> List[BlogPost]:
     """Retrieve the list of published posts from Notion
 
@@ -56,7 +99,12 @@ def collect_notion_posts(
             BlogPost(
                 title=post.title,
                 body=blocks_to_markdown(post.children),
-                date=notion_record.get("created_time"),
+                date=datetime.fromtimestamp(
+                    int(notion_record.get("created_time")) / 1000
+                ),
+                last_edited=datetime.fromtimestamp(
+                    int(notion_record.get("last_edited_time")) / 1000
+                ),
             )
         )
 
@@ -111,7 +159,15 @@ def main():
     hugo_posts = collect_hugo_posts()
     hugo_published = [p for p in hugo_posts if not p.draft]
 
-    notion_posts = collect_notion_posts()
+    notion_posts = collect_notion_posts("***REMOVED***")
+
+    blog_post = notion_posts[1]
+
+    hugo_post = HugoPost.from_blog_post(blog_post)
+
+    blog_output = hugo_post.to_hugo()
+    print(blog_output)
+
     # import IPython;IPython.embed()
 
     # TODO:
@@ -123,25 +179,6 @@ def main():
     # - iterate over published files in hugo
     # - if any pages in notion are not published, retrieve from notion and write as hugo
     # - then push the hugo repo
-
-
-@dataclass
-class BlogPost:
-    title: str
-    date: datetime
-    body: str
-    draft: Optional[bool] = None
-    last_edited: Optional[datetime] = None
-    metadata: Optional[any] = None
-
-
-@dataclass
-class HugoPost:
-    title: str
-    date: datetime
-    draft: bool
-    body: str
-    aliases: Optional[List[str]] = None
 
 
 def collect_hugo_posts():
