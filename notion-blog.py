@@ -185,8 +185,10 @@ def parse_post(content) -> HugoPost:
 
     return HugoPost(**front_matter, body=body)
 
+
 # export NOTION_TOKEN="***REMOVED***"
 # export HUGO_POSTS_FOLDER="***REMOVED***"
+# export NOTION_ROOT_BLOCK="***REMOVED***"
 
 # helper class to get the click output text to show NOTION_TOKEN
 # as the type
@@ -209,7 +211,9 @@ class ClickTokenType(click.types.StringParamType):
     type=ClickTokenType(),
     envvar="NOTION_TOKEN",
 )
-def main(hugo_posts_folder, notion_token):
+@click.option("--notion-root-block", prompt="Notion root block to collect blog posts from:", 
+        envvar="NOTION_ROOT_BLOCK")
+def main(hugo_posts_folder, notion_token, notion_root_block):
 
     notion_client = NotionClient(token_v2=notion_token)
 
@@ -223,7 +227,7 @@ def main(hugo_posts_folder, notion_token):
     hugo_posts = collect_hugo_posts()
     hugo_published = [p for p in hugo_posts if not p.draft]
 
-    notion_posts = collect_notion_posts("***REMOVED***")
+    notion_posts = collect_notion_posts()
 
     blog_post = notion_posts[1]
 
