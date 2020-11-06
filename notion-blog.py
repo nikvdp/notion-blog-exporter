@@ -77,7 +77,7 @@ class HugoPost:
         }
         # TODO: consider supporting non-yaml frontmatter
         as_yaml = yaml.dump(front_matter, default_flow_style=False)
-        output = f"---\n{as_yaml}\n---{self.body}"
+        output = f"---\n{as_yaml}\n---\n{self.body}"
         return output
 
 
@@ -155,7 +155,8 @@ def block_to_markdown(block):
 
     handlers = {
         QuoteBlock: lambda block: "> "
-        + "> ".join([f"{x}\n" for x in block.title.split("\n")]),
+        + "> ".join([f"{x}\n" for x in block.title.split("\n")])
+        + "\n",
         NumberedListBlock: listblock_to_markdown_handler,
         BulletedListBlock: listblock_to_markdown_handler,
         HeaderBlock: lambda block: f"\n# {block.title}\n",
