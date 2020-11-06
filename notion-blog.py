@@ -28,7 +28,6 @@ import sys
 
 
 # TODO: maybe use puppeteer to grab this going forward?
-# TODO: remember to use git filter branch to scrub this out of repo history before pushing!
 config = None
 
 
@@ -76,6 +75,7 @@ class HugoPost:
             for k, v in asdict(self).items()
             if v is not None and k != "body"
         }
+        # TODO: consider supporting non-yaml frontmatter
         as_yaml = yaml.dump(front_matter, default_flow_style=False)
         output = f"---\n{as_yaml}\n---{self.body}"
         return output
@@ -105,9 +105,7 @@ def collect_notion_posts(
     Returns:
         List[BlogPost]: A list of blog posts
     """
-    # id of blog posts page: ***REMOVED***
 
-    # find blog posts page
     blog_posts_page = config.notion_client.get_block(source_block_or_page_id)
 
     notion_posts = []
@@ -156,7 +154,6 @@ def block_to_markdown(block):
     default_handler = lambda block: f"{block.title}\n"
 
     handlers = {
-        # TODO: list blocks need to handle indentation for continuing lines
         QuoteBlock: lambda block: "> "
         + "> ".join([f"{x}\n" for x in block.title.split("\n")]),
         NumberedListBlock: listblock_to_markdown_handler,
@@ -199,13 +196,10 @@ def parse_post(content) -> HugoPost:
     return HugoPost(**front_matter, body=body)
 
 
-# export NOTION_TOKEN="***REMOVED***"
-# export HUGO_POSTS_FOLDER="***REMOVED***"
-# export NOTION_ROOT_BLOCK="***REMOVED***"
-
-# helper class to get the click output text to show NOTION_TOKEN
-# as the type
 class ClickTokenType(click.types.StringParamType):
+    """helper to make click show NOTION_TOKEN for
+    the argument type when called with -h/--help"""
+
     name = "notion_token"
 
 
@@ -240,6 +234,9 @@ def main(hugo_posts_folder, notion_token, notion_root_block):
         notion_client=notion_client,
     )
 
+    # TODO: store notion ids as extra metadata in the hugo frontmatter
+    #       and use them to to intelligently update even if the title has
+    #       changed
     hugo_posts = collect_hugo_posts()
     hugo_published = [p for p in hugo_posts if not p.draft]
 
@@ -247,10 +244,9 @@ def main(hugo_posts_folder, notion_token, notion_root_block):
 
     for blog_post in notion_posts:
 
-        # skip blanks
+        # skip empty blocks
         if not blog_post.title:
             continue
-        # blog_post = notion_posts[1]
 
         hugo_post = HugoPost.from_blog_post(blog_post)
         blog_output = hugo_post.to_hugo()
@@ -260,20 +256,6 @@ def main(hugo_posts_folder, notion_token, notion_root_block):
             fp.write(blog_output)
 
         print(f"Wrote '{safe_title}' to '{hugo_posts_folder}'")
-
-        # print(blog_output)
-
-    # import IPython;IPython.embed()
-
-    # TODO:
-    # workflow:
-    #   scope:
-    #     one way data movement, from notion to hugo
-    #     after writing to hugo, need to save an id somewhere. in hugo frontmatter?
-    # - iterate over published block in notion
-    # - iterate over published files in hugo
-    # - if any pages in notion are not published, retrieve from notion and write as hugo
-    # - then push the hugo repo
 
 
 if __name__ == "__main__":
